@@ -4,6 +4,9 @@ package com.example.test;
 import static java.lang.Thread.sleep;
 
 import android.content.Intent;
+import android.view.inputmethod.InputMethodManager;
+import java.util.Locale;
+import android.os.CountDownTimer;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.MenuItem;
@@ -13,6 +16,7 @@ import android.widget.CompoundButton;
 import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.RelativeLayout;
+import android.widget.SeekBar;
 import android.widget.Switch;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -87,7 +91,7 @@ public class MainActivity extends AppCompatActivity {
 
     private Switch pumpButton,auto_watering;
     private ExtendedFloatingActionButton floatingActionButton;
-    private TextView txtTemp, txtHumidity, txtLastWater,txtLight;
+    private TextView txtTemp, txtHumidity, txtLastWater,txtLight, txtRain;
     private EditText edttxtTemp1,edttxtTemp2,edttxtHumid1,edttxtHumid2;
     private RelativeLayout tempLayout, humidLayout,lightLayout;
     private Double tempThreshold1,tempThreshold2;
@@ -99,7 +103,21 @@ public class MainActivity extends AppCompatActivity {
     private DataBaseHelper dataBaseHelper;
     private ActionBar toolbar;
     private Button update_button;
+    //hpd
+    private SeekBar skbwater;
+    private EditText mEditTextInput;
+    private TextView mTextViewCountDown;
+    private Button mButtonSet;
+    private Button mButtonStartPause;
+    private Button mButtonReset;
 
+    private CountDownTimer mCountDownTimer;
+
+    private boolean mTimerRunning;
+
+    private long mStartTimeInMillis;
+    private long mTimeLeftInMillis;
+    private long mEndTime;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -135,6 +153,7 @@ public class MainActivity extends AppCompatActivity {
         txtHumidity = findViewById(R.id.humid_information);
         txtLight = findViewById(R.id.light_information);
         txtLastWater = findViewById(R.id.last_watering_information);
+        txtRain = findViewById(R.id.rain_information);
 
         edttxtTemp1 = findViewById(R.id.temperature_input1);
         edttxtTemp2 = findViewById(R.id.temperature_input2);
@@ -145,6 +164,7 @@ public class MainActivity extends AppCompatActivity {
         tempLayout = findViewById(R.id.temperature_board);
         humidLayout = findViewById(R.id.humidity_board);
         lightLayout = findViewById(R.id.light_board);
+
 //        tempImg = findViewById(R.id.tempImg);
 //        humidImg = findViewById(R.id.humidImg);
 
@@ -198,6 +218,72 @@ public class MainActivity extends AppCompatActivity {
                     }
                 });
 
+        //hpd
+        skbwater = (SeekBar) findViewById(R.id.watering_seekBar);
+        skbwater.getProgress();
+        skbwater.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+            @Override
+            public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
+
+            }
+
+            @Override
+            public void onStartTrackingTouch(SeekBar seekBar) {
+
+            }
+
+            @Override
+            public void onStopTrackingTouch(SeekBar seekBar) {
+
+            }
+        });
+        setContentView(R.layout.activity_main);
+
+        mEditTextInput = findViewById(R.id.edit_text_input);
+        mTextViewCountDown = findViewById(R.id.text_view_countdown);
+
+        mButtonSet = findViewById(R.id.button_set);
+        mButtonStartPause = findViewById(R.id.watering_button);
+        mButtonReset = findViewById(R.id.button_reset);
+
+        mButtonSet.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                String input = mEditTextInput.getText().toString();
+                if (input.length() == 0) {
+                    Toast.makeText(MainActivity.this, "Field can't be empty", Toast.LENGTH_SHORT).show();
+                    return;
+                }
+
+                long millisInput = Long.parseLong(input) * 60000;
+                if (millisInput == 0) {
+                    Toast.makeText(MainActivity.this, "Please enter a positive number", Toast.LENGTH_SHORT).show();
+                    return;
+                }
+
+                setTime(millisInput);
+                mEditTextInput.setText("");
+            }
+        });
+
+        mButtonStartPause.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                if (mTimerRunning) {
+                    pauseTimer();
+                } else {
+                    startTimer();
+                }
+            }
+        });
+
+        mButtonReset.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                resetTimer();
+            }
+        });
+
         update_button = findViewById(R.id.update_button);
         update_button.setOnClickListener(new View.OnClickListener() {
             public void onClick(View v) {
@@ -247,7 +333,143 @@ public class MainActivity extends AppCompatActivity {
             }
         },0,5000);
     }
+    //hpd
+    private void setTime(long milliseconds) {
+        mStartTimeInMillis = milliseconds;
+        resetTimer();
+        closeKeyboard();
+    }
 
+    private void startTimer() {
+        mEndTime = System.currentTimeMillis() + mTimeLeftInMillis;
+
+        mCountDownTimer = new CountDownTimer(mTimeLeftInMillis, 1000) {
+            @Override
+            public void onTick(long millisUntilFinished) {
+                mTimeLeftInMillis = millisUntilFinished;
+                updateCountDownText();
+            }
+
+            @Override
+            public void onFinish() {
+                mTimerRunning = false;
+                updateWatchInterface();
+            }
+        }.start();
+
+        mTimerRunning = true;
+        updateWatchInterface();
+    }
+
+    private void pauseTimer() {
+        mCountDownTimer.cancel();
+        mTimerRunning = false;
+        updateWatchInterface();
+    }
+
+    private void resetTimer() {
+        mTimeLeftInMillis = mStartTimeInMillis;
+        updateCountDownText();
+        updateWatchInterface();
+    }
+
+    private void updateCountDownText() {
+        int hours = (int) (mTimeLeftInMillis / 1000) / 3600;
+        int minutes = (int) ((mTimeLeftInMillis / 1000) % 3600) / 60;
+        int seconds = (int) (mTimeLeftInMillis / 1000) % 60;
+
+        String timeLeftFormatted;
+        if (hours > 0) {
+            timeLeftFormatted = String.format(Locale.getDefault(),
+                    "%d:%02d:%02d", hours, minutes, seconds);
+        } else {
+            timeLeftFormatted = String.format(Locale.getDefault(),
+                    "%02d:%02d", minutes, seconds);
+        }
+
+        mTextViewCountDown.setText(timeLeftFormatted);
+    }
+
+    private void updateWatchInterface() {
+        if (mTimerRunning) {
+            mEditTextInput.setVisibility(View.INVISIBLE);
+            mButtonSet.setVisibility(View.INVISIBLE);
+            mButtonReset.setVisibility(View.INVISIBLE);
+
+        } else {
+            mEditTextInput.setVisibility(View.VISIBLE);
+            mButtonSet.setVisibility(View.VISIBLE);
+
+
+            if (mTimeLeftInMillis < 1000) {
+                mButtonStartPause.setVisibility(View.INVISIBLE);
+            } else {
+                mButtonStartPause.setVisibility(View.VISIBLE);
+            }
+
+            if (mTimeLeftInMillis < mStartTimeInMillis) {
+                mButtonReset.setVisibility(View.VISIBLE);
+            } else {
+                mButtonReset.setVisibility(View.INVISIBLE);
+            }
+        }
+    }
+
+    private void closeKeyboard() {
+        View view = this.getCurrentFocus();
+        if (view != null) {
+            InputMethodManager imm = (InputMethodManager) getSystemService(INPUT_METHOD_SERVICE);
+            imm.hideSoftInputFromWindow(view.getWindowToken(), 0);
+        }
+    }
+
+    @Override
+    protected void onStop() {
+        super.onStop();
+
+        SharedPreferences prefs = getSharedPreferences("prefs", MODE_PRIVATE);
+        SharedPreferences.Editor editor = prefs.edit();
+
+        editor.putLong("startTimeInMillis", mStartTimeInMillis);
+        editor.putLong("millisLeft", mTimeLeftInMillis);
+        editor.putBoolean("timerRunning", mTimerRunning);
+        editor.putLong("endTime", mEndTime);
+
+        editor.apply();
+
+        if (mCountDownTimer != null) {
+            mCountDownTimer.cancel();
+        }
+    }
+
+    @Override
+    protected void onStart() {
+        super.onStart();
+
+        SharedPreferences prefs = getSharedPreferences("prefs", MODE_PRIVATE);
+
+        mStartTimeInMillis = prefs.getLong("startTimeInMillis", 600000);
+        mTimeLeftInMillis = prefs.getLong("millisLeft", mStartTimeInMillis);
+        mTimerRunning = prefs.getBoolean("timerRunning", false);
+
+        updateCountDownText();
+        updateWatchInterface();
+
+        if (mTimerRunning) {
+            mEndTime = prefs.getLong("endTime", 0);
+            mTimeLeftInMillis = mEndTime - System.currentTimeMillis();
+
+            if (mTimeLeftInMillis < 0) {
+                mTimeLeftInMillis = 0;
+                mTimerRunning = false;
+                updateCountDownText();
+                updateWatchInterface();
+            } else {
+                startTimer();
+            }
+        }
+    }
+    //hpd
     private BottomNavigationView.OnNavigationItemSelectedListener mOnNavigationItemSelectedListener
             = new BottomNavigationView.OnNavigationItemSelectedListener() {
 
@@ -676,6 +898,9 @@ public class MainActivity extends AppCompatActivity {
                         txtTemp.setText(temp.toString() + "\u00B0C");
                         txtHumidity.setText(humidity.toString() + "%");
                         txtLight.setText(light.toString() + " lux");
+                        Double rainfall = 100*(((humidity/100))+((107527-light)/107527)+(temp/100))/3;
+                        rainfall = (double) Math.round(rainfall*100) / 100;
+                        txtRain.setText(rainfall.toString() + "%");
 
 
 
