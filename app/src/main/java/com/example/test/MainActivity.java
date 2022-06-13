@@ -5,6 +5,8 @@ import static java.lang.Thread.sleep;
 
 import android.content.Intent;
 import android.view.inputmethod.InputMethodManager;
+
+import java.util.ArrayList;
 import java.util.Locale;
 import android.os.CountDownTimer;
 import android.os.Bundle;
@@ -15,6 +17,8 @@ import android.widget.Button;
 import android.widget.CompoundButton;
 import android.widget.EditText;
 import android.widget.ImageView;
+import android.widget.LinearLayout;
+import android.widget.NumberPicker;
 import android.widget.RelativeLayout;
 import android.widget.SeekBar;
 import android.widget.Switch;
@@ -25,10 +29,13 @@ import androidx.annotation.NonNull;
 import androidx.annotation.RequiresApi;
 import androidx.appcompat.app.ActionBar;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.constraintlayout.widget.ConstraintLayout;
 import androidx.fragment.app.Fragment;
 import androidx.fragment.app.FragmentTransaction;
 import androidx.core.app.NotificationCompat;
 import androidx.core.app.NotificationManagerCompat;
+import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
 
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
@@ -85,7 +92,6 @@ public class MainActivity extends AppCompatActivity {
     private static Device [] users = new Device[]{user1,user2};
     private int usermode = 1;
 
-
     private static final String USERNAME = "kaitoud";
     private static final String IO_KEY = "aio_seUr87ZhGBlQcox7zdajzMlXNrgm";
 
@@ -102,14 +108,24 @@ public class MainActivity extends AppCompatActivity {
     private MqttAndroidClient client;
     private DataBaseHelper dataBaseHelper;
     private ActionBar toolbar;
-    private Button update_button;
+    private Button update_button, watering_setting,done_add_time;
     //hpd
     private SeekBar skbwater;
-    private EditText mEditTextInput;
     private TextView mTextViewCountDown;
-    private Button mButtonSet;
     private Button mButtonStartPause;
     private Button mButtonReset;
+    private ConstraintLayout watering_setting_dialog;
+    private RelativeLayout watering_setting_back_bttn, popup_background, time_selector;
+    private long watering_time = 0;
+    private TextView txtView_auto_watering_time;
+    private NumberPicker wateringMinutes,wateringSeconds;
+    private RecyclerView list_item_dialog;
+    private LinearLayout watering_time_add_list;
+    ArrayList<AutoWateringHour> list_checks = new ArrayList<>();
+
+    public void setList_checks(ArrayList<AutoWateringHour> list_checks){
+        this.list_checks = list_checks;
+    }
 
     private CountDownTimer mCountDownTimer;
 
@@ -122,7 +138,6 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-
 
         // Perform logout of current user and close the client
 
@@ -187,10 +202,9 @@ public class MainActivity extends AppCompatActivity {
         // Call API for current temp & humidity & last watering
         apiCall();
 
-
-
         // main fragment
         toolbar = getSupportActionBar();
+
         auto_watering = (Switch) findViewById(R.id.auto_watering_switch);
         auto_watering.setOnCheckedChangeListener(
                 new CompoundButton.OnCheckedChangeListener() {
@@ -239,32 +253,10 @@ public class MainActivity extends AppCompatActivity {
         });
         setContentView(R.layout.activity_main);
 
-        mEditTextInput = findViewById(R.id.edit_text_input);
         mTextViewCountDown = findViewById(R.id.text_view_countdown);
 
-        mButtonSet = findViewById(R.id.button_set);
         mButtonStartPause = findViewById(R.id.watering_button);
         mButtonReset = findViewById(R.id.button_reset);
-
-        mButtonSet.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                String input = mEditTextInput.getText().toString();
-                if (input.length() == 0) {
-                    Toast.makeText(MainActivity.this, "Field can't be empty", Toast.LENGTH_SHORT).show();
-                    return;
-                }
-
-                long millisInput = Long.parseLong(input) * 60000;
-                if (millisInput == 0) {
-                    Toast.makeText(MainActivity.this, "Please enter a positive number", Toast.LENGTH_SHORT).show();
-                    return;
-                }
-
-                setTime(millisInput);
-                mEditTextInput.setText("");
-            }
-        });
 
         mButtonStartPause.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -283,6 +275,69 @@ public class MainActivity extends AppCompatActivity {
                 resetTimer();
             }
         });
+
+        watering_setting = findViewById(R.id.watering_mode_setting);
+        watering_setting_dialog = findViewById(R.id.watering_setting_form_dialog);
+        watering_setting_back_bttn = findViewById(R.id.watering_setting_back_button);
+        watering_setting.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                watering_setting_dialog.setVisibility(View.VISIBLE);
+                Log.d("check new interface","test");
+            }
+        });
+        watering_setting_back_bttn.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                watering_setting_dialog.setVisibility(View.GONE);
+            }
+        });
+        txtView_auto_watering_time = findViewById(R.id.auto_watering_time);
+        popup_background = findViewById(R.id.popup_background);
+        time_selector = findViewById(R.id.time_selector);
+        wateringMinutes = findViewById(R.id.watering_time_add_minutes);
+        wateringSeconds = findViewById(R.id.watering_time_add_secs);
+        setMin_Max(wateringMinutes,0,59);
+        setMin_Max(wateringSeconds,0,59);
+
+        txtView_auto_watering_time.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                popup_background.setVisibility(View.VISIBLE);
+                time_selector.setVisibility(View.VISIBLE);
+            }
+        });
+
+        done_add_time = findViewById(R.id.done_add_time);
+        done_add_time.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                String minute = wateringMinutes.getValue()+"";
+                String second = wateringSeconds.getValue()+"";
+                watering_time = Integer.valueOf(minute)*60+ Integer.valueOf(second);
+                if (minute.length() == 1) {
+                    minute = "0" + minute;
+                }
+                if (second.length() == 1){
+                    second = "0" + second;
+                }
+                String watering_time_string = minute+":"+second;
+                txtView_auto_watering_time.setText(watering_time_string);
+                popup_background.setVisibility(View.GONE);
+                time_selector.setVisibility(View.GONE);
+            }
+        });
+        watering_time_add_list = findViewById(R.id.watering_time_add_list);
+        watering_time_add_list.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                int size = list_checks.size();
+                AutoWateringHour node = new AutoWateringHour(size+1,"07","00");
+                list_checks.add(node);
+                show_recycle_dialog();
+            }
+        });
+        list_item_dialog = findViewById(R.id.list_item_dialog);
 
         update_button = findViewById(R.id.update_button);
         update_button.setOnClickListener(new View.OnClickListener() {
@@ -392,17 +447,12 @@ public class MainActivity extends AppCompatActivity {
 
     private void updateWatchInterface() {
         if (mTimerRunning) {
-            mEditTextInput.setVisibility(View.INVISIBLE);
-            mButtonSet.setVisibility(View.INVISIBLE);
-            mButtonReset.setVisibility(View.INVISIBLE);
+            mButtonReset.setVisibility(View.GONE);
 
         } else {
-            mEditTextInput.setVisibility(View.VISIBLE);
-            mButtonSet.setVisibility(View.VISIBLE);
-
 
             if (mTimeLeftInMillis < 1000) {
-                mButtonStartPause.setVisibility(View.INVISIBLE);
+                mButtonStartPause.setVisibility(View.GONE);
             } else {
                 mButtonStartPause.setVisibility(View.VISIBLE);
             }
@@ -410,7 +460,7 @@ public class MainActivity extends AppCompatActivity {
             if (mTimeLeftInMillis < mStartTimeInMillis) {
                 mButtonReset.setVisibility(View.VISIBLE);
             } else {
-                mButtonReset.setVisibility(View.INVISIBLE);
+                mButtonReset.setVisibility(View.GONE);
             }
         }
     }
@@ -980,6 +1030,23 @@ public class MainActivity extends AppCompatActivity {
         } catch (UnsupportedEncodingException e) {
             e.printStackTrace();
         }
+    }
+
+    private void setMin_Max(NumberPicker picker, int min, int max){
+        picker.setMinValue(min);
+        picker.setMaxValue(max);
+        picker.setFormatter(new NumberPicker.Formatter() {
+            @Override
+            public String format(int i) {
+                return String.format("%02d", i);
+            }
+        });
+    }
+
+    private void show_recycle_dialog(){
+        list_form_dialog_RecViewAdapter adapter = new list_form_dialog_RecViewAdapter(this, list_checks);
+        list_item_dialog.setAdapter(adapter);
+        list_item_dialog.setLayoutManager(new LinearLayoutManager(list_item_dialog.getContext()));
     }
 
 }

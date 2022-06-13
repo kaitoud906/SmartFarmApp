@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginRight="20dp"
+    android:layout_marginLeft="20dp"
+    >
+
+    <ImageView
+        android:layout_gravity="center_vertical"
+        android:id="@+id/remove_list_item"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:src="@drawable/icon_remove"
+        app:tint="#CC1111" />
+
+    <EditText
+        android:id="@+id/edttext_hour"
+        android:layout_width="45dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="10dp"
+        android:hint="07"
+        android:inputType="number"
+        android:maxLength="2"
+        android:maxLines="1"
+        android:paddingLeft="10dp"
+        android:textAlignment="center"
+        android:textColor="@color/black"
+        android:textSize="16sp" />
+
+    <TextView
+        android:layout_marginStart="5dp"
+        android:layout_gravity="center_vertical"
+        android:id="@+id/hour_title"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="giờ"
+        android:textColor="@color/black"
+        android:textSize="16sp"
+        android:layout_toEndOf="@id/edttext_hour"
+        />
+    <EditText
+        android:layout_marginStart="5dp"
+        android:id="@+id/edttext_min"
+        android:textSize="16sp"
+        android:layout_width="45dp"
+        android:textAlignment="center"
+        android:layout_height="wrap_content"
+        android:hint="00"
+        android:inputType="number"
+        android:maxLength="2"
+        android:maxLines="1"
+        android:paddingLeft="10dp"
+        android:textColor="@color/black" />
+    <TextView
+        android:layout_marginStart="5dp"
+        android:layout_gravity="center_vertical"
+        android:id="@+id/min_title"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="phút"
+        android:textColor="@color/black"
+        android:textSize="16sp"
+        />
+    <ImageView
+        android:id="@+id/item_save"
+        android:layout_gravity="center_vertical"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:src="@drawable/ic_check_circle"
+        app:tint="@color/teal_200"
+        android:layout_marginLeft="10dp"/>
+
+
+</LinearLayout>
